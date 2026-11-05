@@ -143,6 +143,12 @@ with ctrl_col3:
       "정렬 기준 선택", options=["향상도 순", "신뢰도 순", "동시 순"]
   )
 
+# 중복 짝 제거 체크박스 (기본값: True)
+remove_duplicates = st.checkbox(
+    "중복 짝 제거 (동일한 메뉴 쌍 중 신뢰도가 더 높은 방향 1개만 표시)",
+    value=True,
+)
+
 # 정렬 컬럼 매핑
 sort_map = {"향상도 순": "향상도", "신뢰도 순": "신뢰도", "동시 순": "동시"}
 sort_col = sort_map[sort_option]
@@ -158,7 +164,19 @@ else:
 # 조건 2: 최소 동시 일수 필터링
 filtered_df = filtered_df[filtered_df["동시"] >= min_co_days]
 
-# 조건 3: 선택한 정렬 기준 적용
+# 조건 3: 중복 짝 제거 적용 (신뢰도 높은 규칙을 우선 남김)
+if remove_duplicates and not filtered_df.empty:
+  filtered_df["pair_key"] = filtered_df.apply(
+      lambda r: tuple(sorted([r["조건"], r["결과"]])), axis=1
+  )
+  filtered_df = filtered_df.sort_values(
+      by=["신뢰도", "동시"], ascending=[False, False]
+  )
+  filtered_df = filtered_df.drop_duplicates(
+      subset=["pair_key"], keep="first"
+  ).drop(columns=["pair_key"])
+
+# 조건 4: 선택한 정렬 기준 적용
 filtered_df = filtered_df.sort_values(
     by=[sort_col, "동시", "향상도"], ascending=[False, False, False]
 ).reset_index(drop=True)

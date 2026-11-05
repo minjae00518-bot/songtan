@@ -158,43 +158,49 @@ else:
 # 조건 2: 최소 동시 일수 필터링
 filtered_df = filtered_df[filtered_df["동시"] >= min_co_days]
 
-# 조건 3: 정렬 적용
+# 조건 3: 선택한 정렬 기준 적용
 filtered_df = filtered_df.sort_values(
-    by=[sort_col, "동시"], ascending=[False, False]
+    by=[sort_col, "동시", "향상도"], ascending=[False, False, False]
 ).reset_index(drop=True)
 
 # 남은 규칙 개수 한 줄 안내
 st.info(f"🔍 조건에 부합하여 표에 남은 규칙 수: **{len(filtered_df)}**개")
 
-# 시각화 영역: 향상도 상위 10개 가로 막대그래프
-st.subheader("📊 향상도 상위 10개 규칙")
+# 시각화 영역: 선택한 정렬 기준 상위 10개 가로 막대그래프
+st.subheader(f"📊 {sort_option} 상위 10개 규칙")
 
 if not filtered_df.empty:
-  # 필터링된 데이터 중 향상도 기준 상위 10개 추출
-  top10_df = filtered_df.sort_values(by="향상도", ascending=False).head(10)
+  # 정렬된 데이터 중 상위 10개 추출
+  top10_df = filtered_df.head(10).copy()
   top10_df["규칙"] = top10_df["조건"] + " → " + top10_df["결과"]
 
-  # 차트 y축 위쪽에 높은 값이 오도록 오름차순 정렬
-  top10_df_chart = top10_df.sort_values(by="향상도", ascending=True)
+  # 그래프 상단에 높은 값이 오도록 오름차순 정렬
+  top10_df_chart = top10_df.sort_values(by=sort_col, ascending=True)
 
   fig = px.bar(
       top10_df_chart,
-      x="향상도",
+      x=sort_col,
       y="규칙",
       orientation="h",
-      text="향상도",
-      color="향상도",
+      text=sort_col,
+      color=sort_col,
       color_continuous_scale="Viridis",
       title=(
-          f"[{selected_menu}] 관련 향상도 Top 10 (최소 동시 {min_co_days}일 이상)"
+          f"[{selected_menu}] 관련 {sort_option} Top 10 (최소 동시"
+          f" {min_co_days}일 이상)"
           if selected_menu != "전체"
-          else f"전체 메뉴 향상도 Top 10 (최소 동시 {min_co_days}일 이상)"
+          else f"전체 메뉴 {sort_option} Top 10 (최소 동시 {min_co_days}일 이상)"
       ),
   )
 
-  fig.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+  # 데이터 표시 수치 포맷팅
+  if sort_col == "동시":
+    fig.update_traces(texttemplate="%{text}회", textposition="outside")
+  else:
+    fig.update_traces(texttemplate="%{text:.4f}", textposition="outside")
+
   fig.update_layout(
-      xaxis_title="향상도 (Lift)",
+      xaxis_title=f"{sort_option} ({sort_col})",
       yaxis_title="연관 규칙 (조건 → 결과)",
       height=400,
       showlegend=False,
@@ -209,6 +215,7 @@ st.subheader("📋 연관 규칙 결과 표")
 st.dataframe(
     filtered_df,
     column_config={
+        "동시": st.column_config.NumberColumn(format="%d일"),
         "지지도": st.column_config.NumberColumn(format="%.4f"),
         "신뢰도": st.column_config.NumberColumn(format="%.4f"),
         "향상도": st.column_config.NumberColumn(format="%.4f"),
@@ -221,7 +228,7 @@ st.dataframe(
 st.divider()
 st.subheader("🚫 함께 나온 적 없는 짝")
 st.caption(
-    "선택한 메뉴와 한 번도 함께 나오지 않았으며, 단독으로는 10일 이상 나온 메뉴를"
+    "선택한 메뉴와 한 번도 함께 나오지 않았으며, 단독로는 10일 이상 나온 메뉴를"
     " 조회합니다."
 )
 
@@ -257,7 +264,14 @@ if not never_paired_df.empty:
       by="해당 메뉴 단독 제공 일수", ascending=False
   ).reset_index(drop=True)
 
-  st.dataframe(never_paired_df, use_container_width=True, hide_index=True)
+  st.dataframe(
+      never_paired_df,
+      column_config={
+          "해당 메뉴 단독 제공 일수": st.column_config.NumberColumn(format="%d일")
+      },
+      use_container_width=True,
+      hide_index=True,
+  )
 else:
   st.write(
       "해당 메뉴와 동시 제공 횟수가 0회이면서, 10일 이상 제공된 다른 메뉴가"
